@@ -1,0 +1,107 @@
+package com.example.testapp;
+
+import android.app.Activity;
+import android.content.Context;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.media.AudioFormat;
+import android.media.AudioRecord;
+import android.media.MediaRecorder;
+import android.os.Bundle;
+import android.util.Log;
+import android.view.View;
+
+public class AudioRecordActivity extends Activity {
+	private AudioRecord mAudioRecord;
+	int bufferSizeInBytes;
+	final int sampleRateInHz = 22050;
+
+	@Override
+	protected void onCreate(Bundle savedInstanceState) {
+		super.onCreate(savedInstanceState);
+
+		final int channelConfig = AudioFormat.CHANNEL_IN_MONO;
+		final int audioFormat = AudioFormat.ENCODING_PCM_16BIT;
+		bufferSizeInBytes = AudioRecord.getMinBufferSize(sampleRateInHz,
+				channelConfig, audioFormat);
+		//
+		mAudioRecord = new AudioRecord(MediaRecorder.AudioSource.MIC,
+				sampleRateInHz, channelConfig, audioFormat, bufferSizeInBytes);
+		Log.e("ttt", "init audio record,bufferSizeInBytes:" + bufferSizeInBytes);
+		new Thread() {
+			public void run() {
+				readAudioRecord();
+			}
+		}.start();
+		//
+		setContentView(new VoidView(this));
+
+	}
+
+	short buffer[];
+
+	private void readAudioRecord() {
+		Log.e("ttt", "readAudioRecord...");
+		buffer = new short[bufferSizeInBytes];
+		int readedSize = 0;
+		int i = 0;
+		mAudioRecord.startRecording();
+		while ((readedSize = mAudioRecord.read(buffer, 0, bufferSizeInBytes)) > 0) {
+			for (i = 0; i < readedSize; i++) {
+				Log.e("ttt", "--->" + buffer[i]);
+			}
+		}
+		Log.e("ttt", "readAudioRecord finish,readedSize:" + readedSize);
+	}
+
+	class VoidView extends View {
+
+		public VoidView(Context context) {
+			super(context);
+			this.setBackgroundColor(Color.BLACK);
+		}
+
+		float centerY;
+		float centerX;
+		int width;
+		int height;
+		float shortDrawSacle = 1;
+
+		@Override
+		protected void onLayout(boolean changed, int left, int top, int right,
+				int bottom) {
+			super.onLayout(changed, left, top, right, bottom);
+			width = getWidth();
+			height = getHeight();
+			centerX = width / 2f;
+			centerY = height / 2f;
+			shortDrawSacle = (float) centerY / Short.MAX_VALUE;
+		}
+
+		Paint paint = new Paint();
+		{
+			paint.setColor(Color.BLUE);
+			paint.setStrokeWidth(2);
+		}
+
+		@Override
+		protected void onDraw(Canvas canvas) {
+			float curX = width;
+			float curY;
+			float xStep = (float) width / buffer.length * 2;
+			float perPointX = curX;
+			float perPointY = centerY;
+			for (short s : buffer) {
+				curX -= xStep;
+				curY = centerY + shortDrawSacle * s;
+				canvas.drawLine(perPointX, perPointY, curX, curY, paint);
+				perPointX = curX;
+				perPointY = curY;
+			}
+			//this.postInvalidateDelayed(800);
+			 this.postInvalidate();
+		}
+	}
+
+}
